@@ -1,21 +1,10 @@
 import { DynamicStructuredTool } from "@langchain/core/tools";
-import { ChatOllama } from "@langchain/ollama";
-import { createAgent } from "langchain";
+import { createAgent, initChatModel } from "langchain";
 import Parser from "rss-parser";
 import { z } from "zod";
 
 const MAX_UPDATES_COUNT = 3;
-
-export const getAwsUpdatesInputSchema = z.object({
-  serviceName: z.string().describe("アップデートを検索するAWSサービス名"),
-});
-
-export type getAwsUpdatesInput = z.infer<typeof getAwsUpdatesInputSchema>;
-
-type AwsUpdate = {
-  published: string | undefined;
-  summary: string | undefined;
-};
+const MODEL_NAME = "llama3.1:8b";
 
 type RssAwsItem = {
   title?: string;
@@ -23,6 +12,17 @@ type RssAwsItem = {
   contentSnippet?: string;
   content?: string;
 };
+
+type AwsUpdate = {
+  published: string | undefined;
+  summary: string | undefined;
+};
+
+export const getAwsUpdatesInputSchema = z.object({
+  serviceName: z.string().describe("アップデートを検索するAWSサービス名"),
+});
+
+export type getAwsUpdatesInput = z.infer<typeof getAwsUpdatesInputSchema>;
 
 const getFeeds = async (): Promise<Parser.Output<RssAwsItem>> => {
   try {
@@ -80,8 +80,8 @@ const getAwsUpdatesTool = new DynamicStructuredTool({
   },
 });
 
-const llm = new ChatOllama({
-  model: "llama3.1:8b",
+export const llm = await initChatModel(MODEL_NAME, {
+  modelProvider: "ollama",
 });
 
 export const agent = createAgent({
