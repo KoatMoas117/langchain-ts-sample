@@ -1,5 +1,12 @@
 import { DynamicStructuredTool } from "@langchain/core/tools";
-import { createAgent, initChatModel } from "langchain";
+import {
+  END,
+  MessagesAnnotation,
+  START,
+  StateGraph,
+} from "@langchain/langgraph";
+import { ToolNode } from "@langchain/langgraph/prebuilt";
+import { AIMessage, BaseMessage, createAgent, initChatModel } from "langchain";
 import Parser from "rss-parser";
 import { z } from "zod";
 
@@ -83,8 +90,52 @@ const getAwsUpdatesTool = new DynamicStructuredTool({
 export const llm = await initChatModel(MODEL_NAME, {
   modelProvider: "ollama",
 });
+const llmWithTools = llm.bindTools([getAwsUpdatesTool]);
+
+type MessageState = {
+  messages: Array<BaseMessage>;
+};
 
 export const agent = createAgent({
   model: llm,
   tools: [getAwsUpdatesTool],
 });
+
+const callModel = async (state: MessageState): Promise<MessageState> => {
+  const response = await llmWithTools.invoke(state.messages);
+  return {
+    messages: [...state.messages, response],
+  };
+};
+
+const toolNode = new ToolNode([getAwsUpdatesTool]);
+
+const NEXT_STEP = {
+  TOOL: "tools",
+} as const;
+
+type NextStep = (typeof NEXT_STEP)[keyof typeof NEXT_STEP];
+
+const shouldContinue = (state: MessageState): NextStep | typeof END => {
+  const lastMessage = state.messages[state.messages.length - 1];
+  if (!(lastMessage instanceof AIMessage)) {
+    return END;
+  }
+  if (!lastMessage.tool_calls) {
+    return END;
+  }
+
+  if (lastMessage.tool_calls.length === 0) {
+    return END;
+  }
+
+  return NEXT_STEP.TOOL;
+};
+
+export const graph = new StateGraph(MessagesAnnotation)
+  .addNode("llm", callModel)
+  .addNode("tools", toolNode)
+  .addEdge(START, "llm")
+  .addConditionalEdges("llm", shouldContinue)
+  .addEdge("tools", "llm")
+  .compile();
