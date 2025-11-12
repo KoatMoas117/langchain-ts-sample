@@ -3,7 +3,6 @@ import { HumanMessage } from "@langchain/core/messages";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
 import z from "zod";
-import { agent } from "./models";
 import { graph } from "./graph";
 
 const app = new Hono();
@@ -13,31 +12,7 @@ const schema = z.object({
 });
 
 app.post(
-  "/search-updates-agent",
-  validator("form", async (value, c) => {
-    const parsed = schema.safeParse(value);
-    if (!parsed.success) {
-      return c.text("Invalid!", 401);
-    }
-    return parsed.data;
-  }),
-  async (c) => {
-    const { content } = c.req.valid("form");
-    const response = await agent.invoke({
-      messages: [new HumanMessage(content)],
-    });
-    console.log(response);
-    return c.json(
-      {
-        message: "Created!",
-      },
-      201
-    );
-  }
-);
-
-app.post(
-  "/search-updates-graph",
+  "/agent-with-mcp",
   validator("form", async (value, c) => {
     const parsed = schema.safeParse(value);
     if (!parsed.success) {

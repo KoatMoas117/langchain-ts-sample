@@ -1,7 +1,6 @@
 import { ToolNode } from "@langchain/langgraph/prebuilt";
-import { AIMessage, BaseMessage } from "langchain";
-import { llmWithTools } from "./models";
-import { getAwsUpdatesTool } from "./tools/getAwsUpdates";
+import { AIMessage, BaseMessage, SystemMessage } from "langchain";
+import { llmWithTools, tools } from "./models";
 import {
   END,
   MessagesAnnotation,
@@ -14,13 +13,21 @@ type MessageState = {
 };
 
 const callModel = async (state: MessageState): Promise<MessageState> => {
-  const response = await llmWithTools.invoke(state.messages);
+  const systemPrompt = new SystemMessage(`
+  あなたの責務はAWSドキュメントを検索し、Markdown形式としてファイル出力することです。
+  - 検索後、Markdown形式に変換してください。
+  - 検索は最大で2回までとし、その時点での情報を出力してください。
+`);
+  const response = await llmWithTools.invoke([
+    new SystemMessage(systemPrompt),
+    ...state.messages,
+  ]);
   return {
     messages: [...state.messages, response],
   };
 };
 
-const toolNode = new ToolNode([getAwsUpdatesTool]);
+const toolNode = new ToolNode(tools);
 
 const NEXT_STEP = {
   TOOL: "tools",
