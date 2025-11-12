@@ -3,7 +3,7 @@ import { HumanMessage } from "@langchain/core/messages";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
 import z from "zod";
-import { agent } from "./agent";
+import { agent } from "./models";
 import { graph } from "./graph";
 
 const app = new Hono();

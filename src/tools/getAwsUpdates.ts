@@ -3,6 +3,7 @@ import Parser from "rss-parser";
 import z from "zod";
 
 const MAX_UPDATES_COUNT = 3;
+const AWS_FEED_URL = "https://aws.amazon.com/about-aws/whats-new/recent/feed/";
 
 type RssAwsItem = {
   title?: string;
@@ -25,19 +26,21 @@ export type getAwsUpdatesInput = z.infer<typeof getAwsUpdatesInputSchema>;
 const getFeeds = async (): Promise<Parser.Output<RssAwsItem>> => {
   try {
     const parser = new Parser<RssAwsItem>();
-    return await parser.parseURL(
-      "https://aws.amazon.com/about-aws/whats-new/recent/feed/"
-    );
+    return await parser.parseURL(AWS_FEED_URL);
   } catch (error) {
     console.error("RSSフィードの取得に失敗しました:", error);
-    throw Error("aaa");
+    const message =
+      error instanceof Error
+        ? `AWSアップデートRSSフィードの取得に失敗しました: ${error.message}`
+        : "AWSアップデートRSSフィードの取得に失敗しました";
+    throw new Error(message);
   }
 };
 
-function filterAndFormatUpdates(
+const filterAndFormatUpdates = (
   feedItems: Array<RssAwsItem>,
   serviceName: string
-): Array<AwsUpdate> {
+): Array<AwsUpdate> => {
   const results: Array<AwsUpdate> = [];
   const lowerCaseServiceName = serviceName.toLowerCase();
 
@@ -59,11 +62,11 @@ function filterAndFormatUpdates(
     }
   }
   return results;
-}
+};
 
 export const getAwsUpdatesTool = new DynamicStructuredTool({
   name: "getAwsUpdates",
-  description: `指定されたAWSサービスの最新アップデートをRSSフィードから${MAX_UPDATES_COUNT}件まで取得します。`, // 定数を使用
+  description: `指定されたAWSサービスの最新アップデートをRSSフィードから${MAX_UPDATES_COUNT}件まで取得します。`,
   schema: getAwsUpdatesInputSchema,
   func: async ({
     serviceName,
@@ -71,7 +74,6 @@ export const getAwsUpdatesTool = new DynamicStructuredTool({
     serviceName: getAwsUpdatesInput["serviceName"];
   }): Promise<string> => {
     const feeds = await getFeeds();
-
     const updates = filterAndFormatUpdates(feeds.items, serviceName);
 
     return JSON.stringify(updates, null, 2);

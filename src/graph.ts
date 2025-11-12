@@ -1,6 +1,6 @@
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { AIMessage, BaseMessage } from "langchain";
-import { llmWithTools } from "./agent";
+import { llmWithTools } from "./models";
 import { getAwsUpdatesTool } from "./tools/getAwsUpdates";
 import {
   END,
